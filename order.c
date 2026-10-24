@@ -1,22 +1,46 @@
 #include "no_cap_courier.h"
 
+/* Files used (every field is ONE word, so use _ instead of spaces):
+   users.txt   : roll name phone location
+   runners.txt : roll name phone location rating_sum rating_count status
+   shops.txt   : shop_no shop_name
+   menu.txt    : shop_no item price
+   orders.txt  : id user shop count {item qty price}... fee runner status placed accepted rated */
+
+/* ================= input helpers ================= */
+
+/* Colour for a status word. */
+char *status_color(char *status)
+{
+    if (strcmp(status, "PENDING") == 0)
+        return YELLOW;
+    else if (strcmp(status, "ACCEPTED") == 0)
+        return BLUE;
+    else if (strcmp(status, "DELIVERED") == 0 || strcmp(status, "FREE") == 0)
+        return GREEN;
+    else if (strcmp(status, "CANCELLED") == 0 || strcmp(status, "BOOKED") == 0)
+        return RED;
+    return RESET;
+}
+
+
 int get_int(char *msg)
 {
     char buf[20];
 
     printf("%s", msg);
-    if (scanf("%19s", buf) != 1) { 
-        printf("\nGoodbye!\n");
+    if (scanf("%19s", buf) != 1) {      /* input finished */
+        printf("\n" GREEN "Goodbye!" RESET "\n");
         exit(0);
     }
-    return atoi(buf); 
+    return atoi(buf);                   /* wrong text gives 0 */
 }
 
 void get_word(char *msg, char *dest)
 {
     printf("%s", msg);
     if (scanf("%29s", dest) != 1) {
-        printf("\nGoodbye!\n");
+        printf("\n" GREEN "Goodbye!" RESET "\n");
         exit(0);
     }
 }
@@ -44,6 +68,8 @@ void choose_location(char *loc)
     else
         strcpy(loc, "Gollamari");
 }
+
+/* Delivery fee depends on the area (Tk). */
 int delivery_fee(char *loc)
 {
     if (strcmp(loc, "Fulbari_Gate") == 0)
@@ -55,13 +81,17 @@ int delivery_fee(char *loc)
     else if (strcmp(loc, "Shibbari") == 0)
         return 45;
     else
-        return 50;
+        return 50;                      /* Gollamari */
 }
+
+/* ================= shops and menus ================= */
+
 int load_shops(char names[][LEN])
 {
     FILE *fp = fopen("shops.txt", "r");
     int no, n = 0;
     char name[LEN];
+
     if (fp == NULL)
         return 0;
     while (n < MAX_SHOPS && fscanf(fp, "%d %s", &no, name) == 2) {
@@ -71,11 +101,13 @@ int load_shops(char names[][LEN])
     fclose(fp);
     return n;
 }
+
 int load_menu(int shop, char items[][LEN], int prices[])
 {
     FILE *fp = fopen("menu.txt", "r");
     int no, price, n = 0;
     char item[LEN];
+
     if (fp == NULL)
         return 0;
     while (fscanf(fp, "%d %s %d", &no, item, &price) == 3) {
@@ -88,35 +120,43 @@ int load_menu(int shop, char items[][LEN], int prices[])
     fclose(fp);
     return n;
 }
+
 void get_shop_name(int shop, char *name)
 {
-        char names[MAX_SHOPS][LEN];
+    char names[MAX_SHOPS][LEN];
     int n = load_shops(names);
+
     strcpy(name, "Unknown");
     if (shop >= 1 && shop <= n)
         strcpy(name, names[shop - 1]);
 }
+
+/* Shows the shops and returns the chosen shop number (0 if none). */
 int choose_shop(void)
 {
     char names[MAX_SHOPS][LEN];
     int i, c, n = load_shops(names);
+
     if (n == 0) {
-        printf("No shops linked yet. Ask the admin.\n");
+        printf(YELLOW "No shops linked yet. Ask the admin." RESET "\n");
         return 0;
     }
-    printf("\n--- Shops ---\n");
+    printf("\n" BOLD CYAN "--- Shops ---" RESET "\n");
     for (i = 0; i < n; i++)
         printf("%d. %s\n", i + 1, names[i]);
     c = get_int("Choose shop: ");
     if (c < 1 || c > n) {
-        printf("Invalid shop.\n");
+        printf(RED "Invalid shop." RESET "\n");
         return 0;
     }
     return c;
 }
+
+/* First run only: creates the 3 fixed shops and their menus. */
 void seed_shops(void)
 {
     FILE *fp = fopen("shops.txt", "r");
+
     if (fp != NULL) {
         fclose(fp);
         return;
@@ -124,15 +164,19 @@ void seed_shops(void)
     fp = fopen("shops.txt", "w");
     fprintf(fp, "1 Stationery_Shop\n2 Food_Shop\n3 Book_Shop\n");
     fclose(fp);
+
     fp = fopen("menu.txt", "w");
+    /* shop 1: stationery */
     fprintf(fp, "1 Lab_Pad 25\n1 Matador_Pen 10\n1 Eraser 5\n1 Sharpener 5\n");
     fprintf(fp, "1 Pencil 10\n1 Assignment_Cover_Page 10\n1 Lab_Report_File 10\n");
     fprintf(fp, "1 Notepad 80\n1 Stapler 50\n1 Stapler_Pins 20\n1 Ruler 15\n");
     fprintf(fp, "1 Highlighter 30\n1 Glue_Stick 25\n1 Graph_Paper 5\n");
     fprintf(fp, "1 Marker_Pen 30\n1 Calculator 850\n");
+    /* shop 2: food */
     fprintf(fp, "2 Burger 90\n2 Sandwich 60\n2 Biriyani 100\n2 Fried_Rice 120\n");
     fprintf(fp, "2 Chicken_Roll 50\n2 Egg_Roll 40\n2 Noodles 70\n2 French_Fries 60\n");
     fprintf(fp, "2 Singara 10\n2 Tea 15\n2 Coffee 30\n2 Cold_Drink 30\n");
+    /* shop 3: engineering books */
     fprintf(fp, "3 Engg_Math_Grewal 750\n3 Physics_Halliday 900\n");
     fprintf(fp, "3 Engg_Chemistry_Jain 450\n3 C_Programming_Balaguruswamy 450\n");
     fprintf(fp, "3 Data_Structures_Schaum 600\n3 Digital_Logic_Mano 800\n");
@@ -140,39 +184,43 @@ void seed_shops(void)
     fprintf(fp, "3 Fluid_Mechanics_Cengel 1000\n3 Circuit_Analysis_Boylestad 1000\n");
     fclose(fp);
 }
+
 void add_menu_item(void)
 {
     char items[MAX_MENU][LEN], item[LEN];
     int prices[MAX_MENU];
     int shop, price;
     FILE *fp;
+
     shop = choose_shop();
     if (shop == 0)
         return;
     if (load_menu(shop, items, prices) >= MAX_MENU) {
-        printf("This menu is full.\n");
+        printf(RED "This menu is full." RESET "\n");
         return;
     }
     get_word("Item name (use _ for space): ", item);
     price = get_int("Price (Tk): ");
     if (price < 1) {
-        printf("Invalid price.\n");
+        printf(RED "Invalid price." RESET "\n");
         return;
     }
     fp = fopen("menu.txt", "a");
     fprintf(fp, "%d %s %d\n", shop, item, price);
     fclose(fp);
-    printf("Item added.\n");
+    printf(GREEN "Item added." RESET "\n");
 }
+
 void show_all_menus(void)
 {
     char names[MAX_SHOPS][LEN], items[MAX_MENU][LEN];
     int prices[MAX_MENU];
     int i, j, m, n = load_shops(names);
+
     if (n == 0)
-        printf("No shops linked yet.\n");
+        printf(YELLOW "No shops linked yet." RESET "\n");
     for (i = 0; i < n; i++) {
-        printf("\n=== Shop %d: %s ===\n", i + 1, names[i]);
+        printf("\n" BOLD CYAN "=== Shop %d: %s ===" RESET "\n", i + 1, names[i]);
         m = load_menu(i + 1, items, prices);
         if (m == 0)
             printf("  (no items yet)\n");
@@ -180,10 +228,14 @@ void show_all_menus(void)
             printf("  %2d. %-30s %d Tk\n", j + 1, items[j], prices[j]);
     }
 }
+
+/* ================= users ================= */
+
 int find_user(char *roll, struct User *u)
 {
     FILE *fp = fopen("users.txt", "r");
     struct User t;
+
     if (fp == NULL)
         return 0;
     while (fscanf(fp, "%s %s %s %s", t.roll, t.name, t.phone, t.location) == 4) {
@@ -196,45 +248,55 @@ int find_user(char *roll, struct User *u)
     fclose(fp);
     return 0;
 }
+
 void register_user(void)
 {
     struct User u, tmp;
     FILE *fp;
-    printf("\n--- User Registration ---\n");
+
+    printf("\n" BOLD CYAN "--- User Registration ---" RESET "\n");
     get_word("KUET roll: ", u.roll);
     if (find_user(u.roll, &tmp)) {
-        printf("Already registered. Please login.\n");
+        printf(RED "Already registered. Please login." RESET "\n");
         return;
     }
     get_word("Name (use _ for space): ", u.name);
     get_word("Phone number: ", u.phone);
     choose_location(u.location);
+
     fp = fopen("users.txt", "a");
     fprintf(fp, "%s %s %s %s\n", u.roll, u.name, u.phone, u.location);
     fclose(fp);
-    printf("Registered. You can login now.\n");
+    printf(GREEN "Registered. You can login now." RESET "\n");
 }
+
 int login_user(struct User *u)
 {
     char roll[LEN];
+
     get_word("KUET roll: ", roll);
     if (find_user(roll, u) == 0) {
-        printf("Roll not found. Please register first.\n");
+        printf(RED "Roll not found. Please register first." RESET "\n");
         return 0;
     }
-    printf("Welcome, %s!\n", u->name);
+    printf(GREEN "Welcome, %s!" RESET "\n", u->name);
     return 1;
 }
+
 void print_user_profile(struct User *u)
 {
-    printf("\n--- Profile ---\n");
+    printf("\n" BOLD CYAN "--- Profile ---" RESET "\n");
     printf("Name: %s\nRoll: %s\nPhone: %s\n", u->name, u->roll, u->phone);
     printf("Location: %s (delivery fee %d Tk)\n", u->location, delivery_fee(u->location));
 }
+
+/* ================= runners (delivery men) ================= */
+
 int load_runners(struct Runner r[])
 {
     FILE *fp = fopen("runners.txt", "r");
     int n = 0;
+
     if (fp == NULL)
         return 0;
     while (n < MAX_RUNNERS &&
@@ -244,18 +306,23 @@ int load_runners(struct Runner r[])
     fclose(fp);
     return n;
 }
+
 void save_runners(struct Runner r[], int n)
 {
     FILE *fp = fopen("runners.txt", "w");
     int i;
+
     for (i = 0; i < n; i++)
         fprintf(fp, "%s %s %s %s %d %d %s\n", r[i].roll, r[i].name, r[i].phone,
                 r[i].location, r[i].rating_sum, r[i].rating_count, r[i].status);
     fclose(fp);
 }
+
+/* First run only: the 4 starting delivery men (edit runners.txt for real details). */
 void seed_runners(void)
 {
     FILE *fp = fopen("runners.txt", "r");
+
     if (fp != NULL) {
         fclose(fp);
         return;
@@ -267,10 +334,12 @@ void seed_runners(void)
     fprintf(fp, "2000004 Delivery_Man_4 01700000004 Residential_Area 0 0 FREE\n");
     fclose(fp);
 }
+
 int find_runner(char *roll, struct Runner *r)
 {
     struct Runner list[MAX_RUNNERS];
     int i, n = load_runners(list);
+
     for (i = 0; i < n; i++) {
         if (strcmp(list[i].roll, roll) == 0) {
             *r = list[i];
@@ -279,74 +348,86 @@ int find_runner(char *roll, struct Runner *r)
     }
     return 0;
 }
+
 void register_runner(void)
 {
     struct Runner r, tmp;
     FILE *fp;
-    printf("\n--- Delivery Man Registration ---\n");
+
+    printf("\n" BOLD CYAN "--- Delivery Man Registration ---" RESET "\n");
     get_word("KUET roll: ", r.roll);
     if (find_runner(r.roll, &tmp)) {
-        printf("Already registered. Please login.\n");
+        printf(RED "Already registered. Please login." RESET "\n");
         return;
     }
     get_word("Name (use _ for space): ", r.name);
     get_word("Phone number: ", r.phone);
     choose_location(r.location);
+
     fp = fopen("runners.txt", "a");
     fprintf(fp, "%s %s %s %s 0 0 FREE\n", r.roll, r.name, r.phone, r.location);
     fclose(fp);
-    printf("Registered. You can login now.\n");
+    printf(GREEN "Registered. You can login now." RESET "\n");
 }
+
 int login_runner(struct Runner *r)
 {
     char roll[LEN];
 
     get_word("KUET roll: ", roll);
     if (find_runner(roll, r) == 0) {
-        printf("Roll not found. Please register first.\n");
+        printf(RED "Roll not found. Please register first." RESET "\n");
         return 0;
     }
-    printf("Welcome, %s!\n", r->name);
+    printf(GREEN "Welcome, %s!" RESET "\n", r->name);
     return 1;
 }
+
 void print_runner_profile(struct Runner *r)
 {
-    printf("\n--- Delivery Man Profile ---\n");
+    printf("\n" BOLD CYAN "--- Delivery Man Profile ---" RESET "\n");
     printf("Name: %s\nRoll: %s\nPhone: %s\nLocation: %s\n", r->name, r->roll, r->phone, r->location);
     if (r->rating_count == 0)
         printf("Rating: no ratings yet\n");
     else
         printf("Rating: %.1f / 5 (%d ratings)\n", (float)r->rating_sum / r->rating_count, r->rating_count);
-    printf("Status: %s\n", r->status);
+    printf("Status: %s%s%s\n", status_color(r->status), r->status, RESET);
 }
+
+/* Buyers see who is FREE and who is BOOKED. */
 void list_runners(void)
 {
     struct Runner list[MAX_RUNNERS];
     int i, n = load_runners(list);
+
     if (n == 0)
-        printf("No delivery men yet.\n");
+        printf(YELLOW "No delivery men yet." RESET "\n");
     for (i = 0; i < n; i++) {
         printf("%-8s %-16s %-12s ", list[i].roll, list[i].name, list[i].location);
         if (list[i].rating_count == 0)
             printf("no ratings   ");
         else
             printf("%.1f stars    ", (float)list[i].rating_sum / list[i].rating_count);
-        printf("%s\n", list[i].status);
+        printf("%s%s%s\n", status_color(list[i].status), list[i].status, RESET);
     }
 }
+
 void set_runner_status(char *roll, char *status)
 {
     struct Runner list[MAX_RUNNERS];
     int i, n = load_runners(list);
+
     for (i = 0; i < n; i++)
         if (strcmp(list[i].roll, roll) == 0)
             strcpy(list[i].status, status);
     save_runners(list, n);
 }
+
 void add_rating(char *roll, int stars)
 {
     struct Runner list[MAX_RUNNERS];
     int i, n = load_runners(list);
+
     for (i = 0; i < n; i++) {
         if (strcmp(list[i].roll, roll) == 0) {
             list[i].rating_sum = list[i].rating_sum + stars;
@@ -355,10 +436,14 @@ void add_rating(char *roll, int stars)
     }
     save_runners(list, n);
 }
+
+/* ================= orders ================= */
+
 int load_orders(struct Order o[])
 {
     FILE *fp = fopen("orders.txt", "r");
     int n = 0, i, ok;
+
     if (fp == NULL)
         return 0;
     while (n < MAX_ORDERS) {
@@ -378,30 +463,38 @@ int load_orders(struct Order o[])
     fclose(fp);
     return n;
 }
+
 void write_order(FILE *fp, struct Order *o)
 {
     int i;
+
     fprintf(fp, "%d %s %d %d", o->id, o->user_roll, o->shop, o->count);
     for (i = 0; i < o->count; i++)
         fprintf(fp, " %s %d %d", o->item[i], o->qty[i], o->price[i]);
     fprintf(fp, " %d %s %s %ld %ld %d\n", o->fee, o->runner_roll, o->status,
             o->placed, o->accepted, o->rated);
 }
+
+/* Price of all items in the order (without the delivery fee). */
 int items_total(struct Order *o)
 {
     int i, total = 0;
+
     for (i = 0; i < o->count; i++)
         total = total + o->qty[i] * o->price[i];
     return total;
 }
+
 void save_orders(struct Order o[], int n)
 {
     FILE *fp = fopen("orders.txt", "w");
     int i;
+
     for (i = 0; i < n; i++)
         write_order(fp, &o[i]);
     fclose(fp);
 }
+
 int next_order_id(void)
 {
     struct Order list[MAX_ORDERS];
@@ -412,6 +505,7 @@ int next_order_id(void)
             max = list[i].id;
     return max + 1;
 }
+
 void print_order(struct Order *o)
 {
     char shop[LEN];
@@ -419,8 +513,9 @@ void print_order(struct Order *o)
     time_t t;
     long wait;
     int i;
+
     get_shop_name(o->shop, shop);
-    printf("\nOrder #%d [%s]\n", o->id, o->status);
+    printf("\nOrder #%d [%s%s%s]\n", o->id, status_color(o->status), o->status, RESET);
     printf("  Shop: %s\n", shop);
     for (i = 0; i < o->count; i++)
         printf("  - %s x %d = %d Tk\n", o->item[i], o->qty[i], o->qty[i] * o->price[i]);
@@ -428,6 +523,7 @@ void print_order(struct Order *o)
            items_total(o), o->fee, items_total(o) + o->fee);
     if (strcmp(o->runner_roll, "-") != 0 && find_runner(o->runner_roll, &r))
         printf("  Delivery man: %s (%s)\n", r.name, r.phone);
+
     t = o->placed;
     printf("  Placed  : %s", ctime(&t));
     if (o->accepted != 0) {
@@ -440,6 +536,7 @@ void print_order(struct Order *o)
         printf("  Waiting so far: %ld min %ld sec\n", wait / 60, wait % 60);
     }
 }
+
 void place_order(struct User *u)
 {
     char items[MAX_MENU][LEN];
@@ -447,20 +544,22 @@ void place_order(struct User *u)
     int i, n, shop, choice, qty, found;
     struct Order *o;
     FILE *fp;
+
     shop = choose_shop();
     if (shop == 0)
         return;
     n = load_menu(shop, items, prices);
     if (n == 0) {
-        printf("This shop has no items yet.\n");
+        printf(YELLOW "This shop has no items yet." RESET "\n");
         return;
     }
-    printf("\n--- Menu ---\n");
+    printf("\n" BOLD CYAN "--- Menu ---" RESET "\n");
     for (i = 0; i < n; i++)
         printf("%2d. %-30s %d Tk\n", i + 1, items[i], prices[i]);
+
     o = (struct Order *)malloc(sizeof(struct Order));   /* record made only when ordering */
     if (o == NULL) {
-        printf("Out of memory.\n");
+        printf(RED "Out of memory." RESET "\n");
         return;
     }
     o->count = 0;
@@ -470,12 +569,12 @@ void place_order(struct User *u)
         if (choice == 0)
             break;
         if (choice < 1 || choice > n) {
-            printf("Invalid item.\n");
+            printf(RED "Invalid item." RESET "\n");
             continue;
         }
         qty = get_int("Quantity (1-10): ");
         if (qty < 1 || qty > 10) {
-            printf("Invalid quantity.\n");
+            printf(RED "Invalid quantity." RESET "\n");
             continue;
         }
         found = -1;
@@ -490,13 +589,14 @@ void place_order(struct User *u)
             o->price[o->count] = prices[choice - 1];
             o->count++;
         }
-        printf("Added. Different items so far: %d\n", o->count);
+        printf(GREEN "Added. Different items so far: %d" RESET "\n", o->count);
     }
     if (o->count == 0) {
-        printf("Nothing selected. Order not placed.\n");
+        printf(RED "Nothing selected. Order not placed." RESET "\n");
         free(o);
         return;
     }
+
     o->id = next_order_id();
     strcpy(o->user_roll, u->roll);
     o->shop = shop;
@@ -506,17 +606,20 @@ void place_order(struct User *u)
     o->placed = time(NULL);
     o->accepted = 0;
     o->rated = 0;
+
     fp = fopen("orders.txt", "a");
     write_order(fp, o);
     fclose(fp);
-    printf("\nOrder #%d placed.\n", o->id);
+
+    printf("\n" GREEN "Order #%d placed." RESET "\n", o->id);
     for (i = 0; i < o->count; i++)
         printf("  %s x %d = %d Tk\n", o->item[i], o->qty[i], o->qty[i] * o->price[i]);
     printf("Items %d Tk + delivery %d Tk = %d Tk total.\n",
            items_total(o), o->fee, items_total(o) + o->fee);
-    printf("Waiting for a delivery man to accept it.\n");
+    printf(YELLOW "Waiting for a delivery man to accept it." RESET "\n");
     free(o);                                            /* released after saving */
 }
+
 void view_user_orders(char *roll)
 {
     struct Order list[MAX_ORDERS];
@@ -529,12 +632,14 @@ void view_user_orders(char *roll)
         }
     }
     if (count == 0)
-        printf("You have no orders yet.\n");
+        printf(YELLOW "You have no orders yet." RESET "\n");
 }
+
 void cancel_order(char *roll)
 {
     struct Order list[MAX_ORDERS];
     int i, id, found = -1, n;
+
     view_user_orders(roll);
     id = get_int("\nOrder id to cancel (0 = back): ");
     if (id == 0)
@@ -543,20 +648,23 @@ void cancel_order(char *roll)
     for (i = 0; i < n; i++)
         if (list[i].id == id && strcmp(list[i].user_roll, roll) == 0)
             found = i;
+
     if (found == -1)
-        printf("No such order on your account.\n");
+        printf(RED "No such order on your account." RESET "\n");
     else if (strcmp(list[found].status, "PENDING") != 0)
-        printf("Only PENDING orders can be cancelled.\n");
+        printf(RED "Only PENDING orders can be cancelled." RESET "\n");
     else {
         strcpy(list[found].status, "CANCELLED");
         save_orders(list, n);
-        printf("Order #%d cancelled.\n", id);
+        printf(GREEN "Order #%d cancelled." RESET "\n", id);
     }
 }
+
 void rate_order(char *roll)
 {
     struct Order list[MAX_ORDERS];
     int i, id, stars, found = -1, count = 0, n = load_orders(list);
+
     for (i = 0; i < n; i++) {
         if (strcmp(list[i].user_roll, roll) == 0 &&
             strcmp(list[i].status, "DELIVERED") == 0 && list[i].rated == 0) {
@@ -565,7 +673,7 @@ void rate_order(char *roll)
         }
     }
     if (count == 0) {
-        printf("No delivered orders waiting for a rating.\n");
+        printf(YELLOW "No delivered orders waiting for a rating." RESET "\n");
         return;
     }
     id = get_int("\nOrder id to rate (0 = back): ");
@@ -576,24 +684,26 @@ void rate_order(char *roll)
             strcmp(list[i].status, "DELIVERED") == 0 && list[i].rated == 0)
             found = i;
     if (found == -1) {
-        printf("That order cannot be rated.\n");
+        printf(RED "That order cannot be rated." RESET "\n");
         return;
     }
     stars = get_int("Rate the delivery man (1-5): ");
     if (stars < 1 || stars > 5) {
-        printf("Invalid rating.\n");
+        printf(RED "Invalid rating." RESET "\n");
         return;
     }
     add_rating(list[found].runner_roll, stars);
     list[found].rated = 1;
     save_orders(list, n);
-    printf("Thanks! Rating added to the delivery man's profile.\n");
+    printf(GREEN "Thanks! Rating added to the delivery man's profile." RESET "\n");
 }
+
 void view_pending_orders(void)
 {
     struct Order list[MAX_ORDERS];
     struct User u;
     int i, count = 0, n = load_orders(list);
+
     for (i = 0; i < n; i++) {
         if (strcmp(list[i].status, "PENDING") == 0) {
             print_order(&list[i]);
@@ -603,8 +713,9 @@ void view_pending_orders(void)
         }
     }
     if (count == 0)
-        printf("No pending orders right now.\n");
+        printf(YELLOW "No pending orders right now." RESET "\n");
 }
+
 void accept_order(char *runner_roll)
 {
     struct Runner r;
@@ -614,7 +725,7 @@ void accept_order(char *runner_roll)
     if (find_runner(runner_roll, &r) == 0)
         return;
     if (strcmp(r.status, "BOOKED") == 0) {
-        printf("You already have a delivery. Mark it delivered first.\n");
+        printf(RED "You already have a delivery. Mark it delivered first." RESET "\n");
         return;
     }
     view_pending_orders();
@@ -626,7 +737,7 @@ void accept_order(char *runner_roll)
         if (list[i].id == id && strcmp(list[i].status, "PENDING") == 0)
             found = i;
     if (found == -1) {
-        printf("That order is not available.\n");
+        printf(RED "That order is not available." RESET "\n");
         return;
     }
     strcpy(list[found].runner_roll, runner_roll);
@@ -634,32 +745,35 @@ void accept_order(char *runner_roll)
     list[found].accepted = time(NULL);
     save_orders(list, n);
     set_runner_status(runner_roll, "BOOKED");
-    printf("You accepted order #%d. Deliver it, then mark it delivered.\n", id);
+    printf(GREEN "You accepted order #%d. Deliver it, then mark it delivered." RESET "\n", id);
 }
 
 void mark_delivered(char *runner_roll)
 {
     struct Order list[MAX_ORDERS];
     int i, found = -1, n = load_orders(list);
+
     for (i = 0; i < n; i++)
         if (strcmp(list[i].runner_roll, runner_roll) == 0 &&
             strcmp(list[i].status, "ACCEPTED") == 0)
             found = i;
     if (found == -1) {
-        printf("You have no active delivery.\n");
+        printf(RED "You have no active delivery." RESET "\n");
         return;
     }
     strcpy(list[found].status, "DELIVERED");
     save_orders(list, n);
     set_runner_status(runner_roll, "FREE");
-    printf("Order #%d delivered. You are FREE again.\n", list[found].id);
+    printf(GREEN "Order #%d delivered. You are FREE again." RESET "\n", list[found].id);
 }
+
 void view_all_orders(void)
 {
     struct Order list[MAX_ORDERS];
     int i, n = load_orders(list);
+
     if (n == 0)
-        printf("No orders yet.\n");
+        printf(YELLOW "No orders yet." RESET "\n");
     for (i = 0; i < n; i++) {
         printf("\nBuyer roll: %s", list[i].user_roll);
         print_order(&list[i]);

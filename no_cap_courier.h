@@ -6,13 +6,25 @@
 #include <string.h>
 #include <time.h>
 
-#define LEN          30     
+#define LEN          30     /* size of every text field (arrays of char) */
 #define MAX_SHOPS    3
 #define MAX_MENU     20
-#define MAX_CART     8      
+#define MAX_CART     8      /* different items in one order */
 #define MAX_RUNNERS  50
 #define MAX_ORDERS   300
 #define ADMIN_PASS   "admin123"
+
+/* ---------- colours (ANSI escape codes) ---------- */
+#define RESET   "\033[0m"
+#define BOLD    "\033[1m"
+#define RED     "\033[31m"
+#define GREEN   "\033[32m"
+#define YELLOW  "\033[33m"
+#define BLUE    "\033[34m"
+#define CYAN    "\033[36m"
+#define COLOR_RESET RESET
+
+/* ---------- structures ---------- */
 struct User {
     char roll[LEN];
     char name[LEN];
@@ -27,38 +39,48 @@ struct Runner {
     char location[LEN];
     int  rating_sum;
     int  rating_count;
-    char status[LEN];            
+    char status[LEN];            /* FREE or BOOKED */
 };
 
 struct Order {
     int  id;
     char user_roll[LEN];
     int  shop;
-    int  count;                  
+    int  count;                  /* how many different items in this order */
     char item[MAX_CART][LEN];
     int  qty[MAX_CART];
-    int  price[MAX_CART];       
+    int  price[MAX_CART];        /* price of ONE piece of each item */
     int  fee;
-    char runner_roll[LEN];       
-    char status[LEN];            
+    char runner_roll[LEN];       /* "-" until a runner accepts */
+    char status[LEN];            /* PENDING, ACCEPTED, DELIVERED, CANCELLED */
     long placed;
     long accepted;
-    int  rated;                 
+    int  rated;                  /* 0 = not rated, 1 = rated */
 };
+
+/* ---------- input helpers ---------- */
 int  get_int(char *msg);
 void get_word(char *msg, char *dest);
+
+/* ---------- shops (admin) ---------- */
 void seed_shops(void);
 void add_menu_item(void);
 void show_all_menus(void);
+
+/* ---------- users ---------- */
 void register_user(void);
 int  login_user(struct User *u);
 void print_user_profile(struct User *u);
+
+/* ---------- runners ---------- */
 void seed_runners(void);
 void register_runner(void);
 int  login_runner(struct Runner *r);
 int  find_runner(char *roll, struct Runner *r);
 void print_runner_profile(struct Runner *r);
 void list_runners(void);
+
+/* ---------- orders ---------- */
 void place_order(struct User *u);
 void view_user_orders(char *roll);
 void cancel_order(char *roll);
