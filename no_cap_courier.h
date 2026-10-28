@@ -58,36 +58,61 @@ struct Order {
     int  rated;                  /* 0 = not rated, 1 = rated */
 };
 
-/* ---------- input helpers ---------- */
-int  get_int(char *msg);
-void get_word(char *msg, char *dest);
+/* Data files (every field is ONE word, so use _ instead of spaces):
+   users.txt   : roll name phone location
+   runners.txt : roll name phone location rating_sum rating_count status
+   shops.txt   : shop_no shop_name
+   menu.txt    : shop_no item price
+   orders.txt  : id user shop count {item qty price}... fee runner status placed accepted rated */
 
-/* ---------- shops (admin) ---------- */
+/* ---------- util.c : Input helpers, status colours, areas and delivery fees ---------- */
+int get_int(char *msg);
+void get_word(char *msg, char *dest);
+char *status_color(char *status);
+void choose_location(char *loc);
+int delivery_fee(char *loc);
+
+/* ---------- shop.c : Shops and menus (admin side) ---------- */
+int load_shops(char names[][LEN]);
+int load_menu(int shop, char items[][LEN], int prices[]);
+void get_shop_name(int shop, char *name);
+int choose_shop(void);
 void seed_shops(void);
 void add_menu_item(void);
 void show_all_menus(void);
 
-/* ---------- users ---------- */
+/* ---------- user.c : Users: register, login, profile ---------- */
+int find_user(char *roll, struct User *u);
 void register_user(void);
-int  login_user(struct User *u);
+int login_user(struct User *u);
 void print_user_profile(struct User *u);
 
-/* ---------- runners ---------- */
-void seed_runners(void);
-void register_runner(void);
-int  login_runner(struct Runner *r);
-int  find_runner(char *roll, struct Runner *r);
-void print_runner_profile(struct Runner *r);
-void list_runners(void);
-
-/* ---------- orders ---------- */
+/* ---------- order.c : Orders: place, view, cancel, rate and order storage ---------- */
+int load_orders(struct Order o[]);
+void write_order(FILE *fp, struct Order *o);
+void save_orders(struct Order o[], int n);
+int items_total(struct Order *o);
+int next_order_id(void);
+void print_order(struct Order *o);
 void place_order(struct User *u);
 void view_user_orders(char *roll);
 void cancel_order(char *roll);
 void rate_order(char *roll);
+void view_all_orders(void);
+
+/* ---------- runner.c : Delivery men: profiles, ratings, accepting and delivering ---------- */
+int load_runners(struct Runner r[]);
+void save_runners(struct Runner r[], int n);
+void seed_runners(void);
+int find_runner(char *roll, struct Runner *r);
+void register_runner(void);
+int login_runner(struct Runner *r);
+void print_runner_profile(struct Runner *r);
+void list_runners(void);
+void set_runner_status(char *roll, char *status);
+void add_rating(char *roll, int stars);
 void view_pending_orders(void);
 void accept_order(char *runner_roll);
 void mark_delivered(char *runner_roll);
-void view_all_orders(void);
 
 #endif
